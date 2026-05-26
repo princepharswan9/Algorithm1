@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Algorithm Visualizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1c1c28;
+    --border: #2a2a3d;
+    --accent: #00e5ff;
+    --accent2: #ff3d71;
+    --accent3: #a259ff;
+    --accent4: #00ff88;
+    --text: #e8e8f0;
+    --text-dim: #6b6b8a;
+    --bar-default: #2a2a50;
+    --bar-active: #00e5ff;
+    --bar-compare: #ff3d71;
+    --bar-sorted: #00ff88;
+    --bar-pivot: #a259ff;
+    --radius: 6px;
+    --glow: 0 0 20px rgba(0, 229, 255, 0.3);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: relative;
+    z-index: 1;
+    padding: 28px 40px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  header::before {
+    content: '';
+    width: 8px;
+    height: 40px;
+    background: linear-gradient(180deg, var(--accent), var(--accent3));
+    border-radius: 4px;
+    box-shadow: var(--glow);
+    flex-shrink: 0;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    background: linear-gradient(90deg, var(--text) 40%, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .tag {
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid rgba(0,229,255,0.3);
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-left: auto;
+    white-space: nowrap;
+  }
+
+  /* Controls */
+  .controls {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 40px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(18,18,26,0.6);
+    backdrop-filter: blur(10px);
+  }
+
+  .ctrl-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 14px;
+  }
+
+  .ctrl-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 90px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+  .divider {
+    width: 1px;
+    height: 28px;
+    background: var(--border);
+  }
+
+  .algo-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  button {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    border: none;
+    border-radius: var(--radius);
+    padding: 8px 16px;
+    transition: all 0.18s;
+    text-transform: uppercase;
+  }
+
+  #generate {
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 700;
+    box-shadow: 0 0 16px rgba(0,229,255,0.25);
+  }
+  #generate:hover { box-shadow: 0 0 24px rgba(0,229,255,0.5); transform: translateY(-1px); }
+  #generate:active { transform: translateY(0); }
+
+  #pause-btn {
+    background: var(--accent2);
+    color: #fff;
+    font-weight: 700;
+    box-shadow: 0 0 14px rgba(255,61,113,0.25);
+  }
+  #pause-btn:hover:not(:disabled) { box-shadow: 0 0 22px rgba(255,61,113,0.5); transform: translateY(-1px); }
+  #pause-btn.paused {
+    background: var(--accent4);
+    color: var(--bg);
+    box-shadow: 0 0 14px rgba(0,255,136,0.3);
+  }
+
+  #add-elem:hover { box-shadow: 0 0 20px rgba(0,255,136,0.5); transform: translateY(-1px); }
+  #add-elem:active { transform: translateY(0); }
+  #custom-val:focus { border-color: var(--accent4); box-shadow: 0 0 8px rgba(0,255,136,0.2); }
+
+  .algo-btn {
+    background: var(--surface2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .algo-btn:hover {
+    color: var(--text);
+    border-color: var(--accent3);
+    box-shadow: 0 0 12px rgba(162,89,255,0.2);
+  }
+  .algo-btn.active {
+    background: rgba(162,89,255,0.15);
+    color: var(--accent3);
+    border-color: var(--accent3);
+    box-shadow: 0 0 16px rgba(162,89,255,0.3);
+  }
+  button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 0;
+    padding: 0 40px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-right: 1px solid var(--border);
+  }
+  .stat:first-child { padding-left: 0; }
+
+  .stat-label {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+  }
+
+  .stat-value {
+    font-size: 1rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    min-width: 4ch;
+    transition: color 0.3s;
+  }
+
+  #status-text {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    padding: 10px 0;
+  }
+
+  .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    flex-shrink: 0;
+  }
+  .dot.running { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); animation: pulse 0.8s infinite; }
+  .dot.done { background: var(--accent4); box-shadow: 0 0 8px var(--accent4); }
+
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+  /* Visualizer — layout now handled by #chart-frame */
+
+  .bar {
+    flex: 1;
+    min-width: 4px;
+    border-radius: 3px 3px 0 0;
+    position: relative;
+    cursor: default;
+    transition: height 0.06s ease, filter 0.1s, background 0.1s;
+    /* Unsorted: clean white */
+    background: linear-gradient(180deg,
+      rgba(255,255,255,0.92) 0%,
+      rgba(180,180,200,0.75) 100%
+    );
+    box-shadow: inset 1px 0 0 rgba(255,255,255,0.3);
+  }
+
+  /* Glowing cap on top of each stick */
+  .bar::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: rgba(255,255,255,0.9);
+    transition: background 0.1s;
+  }
+
+  /* Value tooltip on hover */
+  .bar::after {
+    content: attr(data-val);
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--text);
+    background: rgba(28,28,40,0.95);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 4px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+    z-index: 10;
+  }
+  .bar:hover::after { opacity: 1; }
+
+  /* ── Comparing ── */
+  .bar.comparing {
+    background: linear-gradient(180deg,
+      rgba(0,210,100,0.95) 0%,
+      rgba(0,100,50,0.85) 100%
+    );
+    filter: drop-shadow(0 0 7px rgba(0,220,100,0.85));
+  }
+  .bar.comparing::before { background: #00e066; box-shadow: 0 0 8px #00e066; }
+
+  /* ── Active ── */
+  .bar.active {
+    background: linear-gradient(180deg,
+      rgba(50,255,140,0.98) 0%,
+      rgba(0,140,70,0.88) 100%
+    );
+    filter: drop-shadow(0 0 10px rgba(50,255,140,0.95));
+  }
+  .bar.active::before { background: #32ff8c; box-shadow: 0 0 12px #32ff8c; }
+
+  /* ── Sorted ── */
+  .bar.sorted {
+    background: linear-gradient(180deg,
+      rgba(0,255,120,0.92) 0%,
+      rgba(0,110,55,0.8) 100%
+    );
+    filter: drop-shadow(0 0 5px rgba(0,255,120,0.55));
+  }
+  .bar.sorted::before { background: #00ff88; box-shadow: 0 0 7px #00ff88; }
+
+  /* ── Pivot ── */
+  .bar.pivot {
+    background: linear-gradient(180deg,
+      rgba(162,89,255,0.95) 0%,
+      rgba(70,20,130,0.8) 100%
+    );
+    filter: drop-shadow(0 0 8px rgba(162,89,255,0.9));
+  }
+  .bar.pivot::before { background: #a259ff; box-shadow: 0 0 10px #a259ff; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 2px;
+  }
+
+  /* ── Chart frame layout ── */
+  #viz-wrapper {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    padding: 24px 40px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  #chart-frame {
+    display: flex;
+    flex-direction: row;
+    align-items: stretch;
+    flex: 1;
+    min-height: 320px;
+  }
+
+  #y-axis {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding-right: 8px;
+    padding-bottom: 2px;
+    width: 38px;
+    flex-shrink: 0;
+  }
+
+  .y-tick { display: flex; align-items: center; gap: 4px; }
+
+  .y-tick span {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+
+  .tick-line { width: 6px; height: 1px; background: var(--border); }
+
+  #plot-area {
+    flex: 1;
+    position: relative;
+    border-left: 1px solid rgba(0,229,255,0.35);
+    border-bottom: 2px solid rgba(0,229,255,0.35);
+    box-shadow: -2px 0 12px rgba(0,229,255,0.06), 0 2px 12px rgba(0,229,255,0.06);
+  }
+
+  #gridlines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .gridline {
+    position: absolute;
+    left: 0; right: 0;
+    height: 1px;
+    background: rgba(255,255,255,0.03);
+    border-top: 1px dashed rgba(0,229,255,0.07);
+    transform: translateY(50%);
+  }
+
+  #array-container {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    padding: 6px 6px 0;
+    z-index: 1;
+  }
+
+  #x-axis {
+    display: flex;
+    margin-left: 46px;
+    gap: 3px;
+    padding: 5px 6px 0;
+    overflow: hidden;
+    height: 18px;
+  }
+
+  .x-label {
+    flex: 1;
+    text-align: center;
+    font-size: 0.52rem;
+    color: var(--text-dim);
+    overflow: hidden;
+    white-space: nowrap;
+    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Algorithm Visualizer</h1>
+  <span class="tag">v2.0 / Sorting</span>
+</header>
+
+<div class="controls">
+  <button id="generate">⟳ Generate</button>
+
+  <div class="divider"></div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Size</span>
+    <input type="range" id="size" min="10" max="100" value="40" />
+    <span id="size-val" style="font-size:0.72rem;color:var(--accent);min-width:3ch">40</span>
+  </div>
+
+  <div class="ctrl-group">
+    <span class="ctrl-label">Speed</span>
+    <input type="range" id="speed" min="1" max="200" value="80" />
+    <span id="speed-val" style="font-size:0.72rem;color:var(--accent);min-width:3ch">80</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="algo-btns">
+    <button class="algo-btn" id="bubble">Bubble</button>
+    <button class="algo-btn" id="selection">Selection</button>
+    <button class="algo-btn" id="insertion">Insertion</button>
+    <button class="algo-btn" id="merge">Merge</button>
+    <button class="algo-btn" id="quick">Quick</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <button id="pause-btn" disabled>⏸ Pause</button>
+
+  <div class="divider"></div>
+
+  <div class="ctrl-group" style="gap:6px">
+    <span class="ctrl-label">Add</span>
+    <input type="number" id="custom-val" min="10" max="100" placeholder="10–100"
+      style="width:72px;background:var(--bg);border:1px solid var(--border);color:var(--text);
+             border-radius:var(--radius);padding:4px 8px;font-family:'Space Mono',monospace;
+             font-size:0.72rem;outline:none;" />
+    <button id="add-elem" style="background:var(--accent4);color:var(--bg);font-weight:700;
+      box-shadow:0 0 12px rgba(0,255,136,0.25);">+ Add</button>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat">
+    <span class="stat-label">Comparisons</span>
+    <span class="stat-value" id="cmp-count">0</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Swaps</span>
+    <span class="stat-value" id="swap-count">0</span>
+  </div>
+  <div class="stat">
+    <span class="stat-label">Array Writes</span>
+    <span class="stat-value" id="write-count">0</span>
+  </div>
+  <div id="status-text">
+    <span class="dot" id="status-dot"></span>
+    <span id="status-msg">Ready — select an algorithm</span>
+  </div>
+</div>
+
+<div id="viz-wrapper">
+  <div id="chart-frame">
+    <div id="y-axis">
+      <div class="y-tick"><span>100</span><div class="tick-line"></div></div>
+      <div class="y-tick"><span>75</span><div class="tick-line"></div></div>
+      <div class="y-tick"><span>50</span><div class="tick-line"></div></div>
+      <div class="y-tick"><span>25</span><div class="tick-line"></div></div>
+      <div class="y-tick"><span>0</span><div class="tick-line"></div></div>
+    </div>
+    <div id="plot-area">
+      <div id="gridlines">
+        <div class="gridline" style="bottom:100%"></div>
+        <div class="gridline" style="bottom:75%"></div>
+        <div class="gridline" style="bottom:50%"></div>
+        <div class="gridline" style="bottom:25%"></div>
+        <div class="gridline" style="bottom:0%"></div>
+      </div>
+      <div id="array-container"></div>
+    </div>
+  </div>
+  <div id="x-axis"></div>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#e8e8f0;border:1px solid #555"></div>Unsorted</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#32ff8c"></div>Active</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#00e066"></div>Comparing</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--bar-pivot)"></div>Pivot</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#00ff88"></div>Sorted</div>
+  </div>
+</div>
+
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let array = [];
+let bars = [];
+let running = false;
+let paused = false;
+let pauseResolve = null;
+let comparisons = 0;
+let swaps = 0;
+let writes = 0;
+
+const container = document.getElementById('array-container');
+const cmpEl     = document.getElementById('cmp-count');
+const swapEl    = document.getElementById('swap-count');
+const writeEl   = document.getElementById('write-count');
+const statusDot = document.getElementById('status-dot');
+const statusMsg = document.getElementById('status-msg');
+const sizeRange = document.getElementById('size');
+const speedRange= document.getElementById('speed');
+const sizeVal   = document.getElementById('size-val');
+const speedVal  = document.getElementById('speed-val');
+const pauseBtn  = document.getElementById('pause-btn');
+const addElemBtn= document.getElementById('add-elem');
+const customVal = document.getElementById('custom-val');
+
+const allBtns   = [...document.querySelectorAll('.algo-btn'), document.getElementById('generate')];
+const algoBtns  = document.querySelectorAll('.algo-btn');
+
+// ─── Utils ────────────────────────────────────────────────────────────────────
+const sleep = async ms => {
+  // Check for pause before sleeping
+  if (paused) {
+    await new Promise(r => { pauseResolve = r; });
+  }
+  return new Promise(r => setTimeout(r, Math.max(1, 201 - parseInt(speedRange.value))));
+};
+const getDelay = () => Math.max(1, 201 - parseInt(speedRange.value));
+
+// ─── Color Helper ─────────────────────────────────────────────────────────────
+// Unsorted bars are white (set via CSS). This is a no-op kept for compatibility.
+function applyBarColor(bar, val) {
+  bar.style.background = '';
+}
+
+function updateStats() {
+  cmpEl.textContent  = comparisons.toLocaleString();
+  swapEl.textContent = swaps.toLocaleString();
+  writeEl.textContent= writes.toLocaleString();
+}
+
+function resetStats() {
+  comparisons = swaps = writes = 0;
+  updateStats();
+}
+
+function setStatus(state, msg) {
+  statusMsg.textContent = msg;
+  statusDot.className = 'dot ' + state;
+}
+
+function disableControls() {
+  allBtns.forEach(b => b.disabled = true);
+  sizeRange.disabled = true;
+  addElemBtn.disabled = true;
+}
+
+function enableControls() {
+  allBtns.forEach(b => b.disabled = false);
+  sizeRange.disabled = false;
+  addElemBtn.disabled = false;
+  pauseBtn.disabled = true;
+  pauseBtn.textContent = '⏸ Pause';
+  pauseBtn.classList.remove('paused');
+  paused = false;
+}
+
+// ─── Bar Management ───────────────────────────────────────────────────────────
+function generateArray() {
+  const n = parseInt(sizeRange.value);
+  array = Array.from({ length: n }, () => Math.floor(Math.random() * 90) + 10);
+  renderBars();
+  resetStats();
+  setStatus('', 'Ready — select an algorithm');
+  algoBtns.forEach(b => b.classList.remove('active'));
+}
+
+const xAxis = document.getElementById('x-axis');
+
+function renderBars() {
+  container.innerHTML = '';
+  bars = array.map((val) => {
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.height = val + '%';
+    bar.dataset.val = val;
+    applyBarColor(bar, val);
+    container.appendChild(bar);
+    return bar;
+  });
+  renderXAxis();
+}
+
+function addElement() {
+  if (running) return;
+  let val = parseInt(customVal.value);
+  if (isNaN(val)) { customVal.focus(); customVal.style.borderColor='var(--accent2)'; return; }
+  val = Math.min(100, Math.max(10, val));
+  customVal.value = '';
+  customVal.style.borderColor = '';
+
+  array.push(val);
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  bar.style.height = val + '%';
+  bar.style.height = '0%';
+  bar.dataset.val = val;
+  applyBarColor(bar, val);
+  container.appendChild(bar);
+  bars.push(bar);
+  renderXAxis();
+
+  // Animate in
+  requestAnimationFrame(() => {
+    bar.style.transition = 'height 0.35s cubic-bezier(.22,1,.36,1)';
+    bar.style.height = val + '%';
+    // flash highlight
+    bar.classList.add('active');
+    setTimeout(() => bar.classList.remove('active'), 600);
+  });
+
+  resetStats();
+  setStatus('', `Element ${val} added — array size: ${array.length}`);
+}
+
+function renderXAxis() {
+  xAxis.innerHTML = '';
+  const n = array.length;
+  // Show every label if <=30, else every 5th, else every 10th
+  const step = n <= 30 ? 1 : n <= 60 ? 5 : 10;
+  array.forEach((_, i) => {
+    const lbl = document.createElement('div');
+    lbl.className = 'x-label';
+    lbl.textContent = (i % step === 0) ? i : '';
+    xAxis.appendChild(lbl);
+  });
+}
+
+function setBarClass(idx, cls) {
+  bars[idx].className = 'bar' + (cls ? ' ' + cls : '');
+}
+
+function setBarHeight(idx, val) {
+  bars[idx].style.height = val + '%';
+  bars[idx].dataset.val = val;
+  array[idx] = val;
+  // recolor only if not in a highlight state
+  if (!bars[idx].classList.contains('comparing') &&
+      !bars[idx].classList.contains('active') &&
+      !bars[idx].classList.contains('pivot') &&
+      !bars[idx].classList.contains('sorted')) {
+    applyBarColor(bars[idx], val);
+  }
+}
+
+async function highlightRange(from, to, cls) {
+  for (let i = from; i <= to; i++) setBarClass(i, cls);
+}
+
+function clearHighlights() {
+  bars.forEach((b, i) => {
+    b.className = 'bar';
+    applyBarColor(b, array[i]);
+  });
+}
+
+// ─── Bubble Sort ──────────────────────────────────────────────────────────────
+async function bubbleSort() {
+  const n = array.length;
+  for (let i = 0; i < n - 1; i++) {
+    for (let j = 0; j < n - i - 1; j++) {
+      setBarClass(j, 'comparing');
+      setBarClass(j + 1, 'comparing');
+      comparisons++; updateStats();
+      await sleep(getDelay());
+
+      if (array[j] > array[j + 1]) {
+        let tmp = array[j]; array[j] = array[j+1]; array[j+1] = tmp;
+        setBarHeight(j,   array[j]);
+        setBarHeight(j+1, array[j+1]);
+        swaps++; writes += 2; updateStats();
+      }
+      setBarClass(j, ''); setBarClass(j+1, '');
+    }
+    setBarClass(n - 1 - i, 'sorted');
+  }
+  setBarClass(0, 'sorted');
+}
+
+// ─── Selection Sort ───────────────────────────────────────────────────────────
+async function selectionSort() {
+  const n = array.length;
+  for (let i = 0; i < n - 1; i++) {
+    let minIdx = i;
+    setBarClass(i, 'active');
+    for (let j = i + 1; j < n; j++) {
+      setBarClass(j, 'comparing');
+      comparisons++; updateStats();
+      await sleep(getDelay());
+      if (array[j] < array[minIdx]) {
+        if (minIdx !== i) setBarClass(minIdx, '');
+        minIdx = j;
+        setBarClass(minIdx, 'active');
+      } else {
+        setBarClass(j, '');
+      }
+    }
+    if (minIdx !== i) {
+      let tmp = array[i]; array[i] = array[minIdx]; array[minIdx] = tmp;
+      setBarHeight(i,      array[i]);
+      setBarHeight(minIdx, array[minIdx]);
+      swaps++; writes += 2; updateStats();
+    }
+    setBarClass(minIdx, '');
+    setBarClass(i, 'sorted');
+    await sleep(getDelay());
+  }
+  setBarClass(array.length - 1, 'sorted');
+}
+
+// ─── Insertion Sort ───────────────────────────────────────────────────────────
+async function insertionSort() {
+  const n = array.length;
+  setBarClass(0, 'sorted');
+  for (let i = 1; i < n; i++) {
+    let key = array[i];
+    setBarClass(i, 'active');
+    await sleep(getDelay());
+    let j = i - 1;
+    while (j >= 0 && array[j] > key) {
+      setBarClass(j, 'comparing');
+      comparisons++; updateStats();
+      array[j + 1] = array[j];
+      setBarHeight(j + 1, array[j + 1]);
+      writes++; updateStats();
+      await sleep(getDelay());
+      setBarClass(j, 'sorted');
+      j--;
+    }
+    comparisons++; updateStats();
+    array[j + 1] = key;
+    setBarHeight(j + 1, key);
+    writes++; updateStats();
+    setBarClass(j + 1, 'sorted');
+  }
+}
+
+// ─── Merge Sort ───────────────────────────────────────────────────────────────
+async function mergeSortHelper(l, r) {
+  if (l >= r) return;
+  const m = Math.floor((l + r) / 2);
+  await mergeSortHelper(l, m);
+  await mergeSortHelper(m + 1, r);
+  await merge(l, m, r);
+}
+
+async function merge(l, m, r) {
+  let left  = array.slice(l, m + 1);
+  let right = array.slice(m + 1, r + 1);
+  let i = 0, j = 0, k = l;
+
+  while (i < left.length && j < right.length) {
+    setBarClass(k, 'active');
+    comparisons++; updateStats();
+    await sleep(getDelay());
+
+    if (left[i] <= right[j]) {
+      array[k] = left[i++];
+    } else {
+      array[k] = right[j++];
+    }
+    setBarHeight(k, array[k]);
+    writes++; updateStats();
+    setBarClass(k, 'comparing');
+    k++;
+  }
+  while (i < left.length) {
+    setBarHeight(k, left[i++]); writes++;
+    setBarClass(k, 'comparing'); k++;
+  }
+  while (j < right.length) {
+    setBarHeight(k, right[j++]); writes++;
+    setBarClass(k, 'comparing'); k++;
+  }
+  for (let x = l; x <= r; x++) setBarClass(x, 'sorted');
+  updateStats();
+}
+
+// ─── Quick Sort ───────────────────────────────────────────────────────────────
+async function quickSortHelper(l, r) {
+  if (l >= r) return;
+  const pi = await partition(l, r);
+  await quickSortHelper(l, pi - 1);
+  await quickSortHelper(pi + 1, r);
+}
+
+async function partition(l, r) {
+  const pivot = array[r];
+  setBarClass(r, 'pivot');
+  let i = l - 1;
+
+  for (let j = l; j < r; j++) {
+    setBarClass(j, 'comparing');
+    comparisons++; updateStats();
+    await sleep(getDelay());
+
+    if (array[j] <= pivot) {
+      i++;
+      let tmp = array[i]; array[i] = array[j]; array[j] = tmp;
+      setBarHeight(i, array[i]); setBarHeight(j, array[j]);
+      swaps++; writes += 2; updateStats();
+      setBarClass(i, 'active');
+    }
+    if (j !== i) setBarClass(j, '');
+  }
+  i++;
+  let tmp = array[i]; array[i] = array[r]; array[r] = tmp;
+  setBarHeight(i, array[i]); setBarHeight(r, array[r]);
+  swaps++; writes += 2; updateStats();
+
+  setBarClass(r, '');
+  setBarClass(i, 'sorted');
+  return i;
+}
+
+// ─── Run Wrapper ──────────────────────────────────────────────────────────────
+const ALGOS = {
+  bubble:    { fn: bubbleSort,                      name: 'Bubble Sort'    },
+  selection: { fn: selectionSort,                   name: 'Selection Sort' },
+  insertion: { fn: insertionSort,                   name: 'Insertion Sort' },
+  merge:     { fn: () => mergeSortHelper(0, array.length - 1), name: 'Merge Sort'  },
+  quick:     { fn: () => quickSortHelper(0, array.length - 1), name: 'Quick Sort'  },
+};
+
+async function runAlgo(id) {
+  if (running) return;
+  running = true;
+  paused = false;
+  disableControls();
+  pauseBtn.disabled = false;
+  clearHighlights();
+  resetStats();
+
+  algoBtns.forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+
+  const { fn, name } = ALGOS[id];
+  setStatus('running', `Running ${name}…`);
+
+  const t0 = performance.now();
+  await fn();
+  const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+
+  // Mark all sorted with color restored
+  bars.forEach((b, i) => {
+    b.className = 'bar sorted';
+  });
+  setStatus('done', `${name} done — ${elapsed}s | ${comparisons.toLocaleString()} comparisons`);
+  running = false;
+  enableControls();
+}
+
+// ─── Event Listeners ─────────────────────────────────────────────────────────
+document.getElementById('generate').addEventListener('click', generateArray);
+sizeRange.addEventListener('input', () => { sizeVal.textContent = sizeRange.value; generateArray(); });
+speedRange.addEventListener('input', () => { speedVal.textContent = speedRange.value; });
+
+pauseBtn.addEventListener('click', () => {
+  if (!running) return;
+  if (!paused) {
+    paused = true;
+    pauseBtn.textContent = '▶ Resume';
+    pauseBtn.classList.add('paused');
+    setStatus('running', 'Paused — click Resume to continue');
+  } else {
+    paused = false;
+    pauseBtn.textContent = '⏸ Pause';
+    pauseBtn.classList.remove('paused');
+    setStatus('running', 'Resumed…');
+    if (pauseResolve) { pauseResolve(); pauseResolve = null; }
+  }
+});
+
+addElemBtn.addEventListener('click', addElement);
+customVal.addEventListener('keydown', e => { if (e.key === 'Enter') addElement(); });
+customVal.addEventListener('input', () => { customVal.style.borderColor = ''; });
+
+Object.keys(ALGOS).forEach(id => {
+  document.getElementById(id).addEventListener('click', () => runAlgo(id));
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+generateArray();
+</script>
+</body>
+</html>

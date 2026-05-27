@@ -1,2 +1,1 @@
-# Algorithm1
-# Algorithm Visualizer 🚀  Algorithm Visualizer is a web-based project built using HTML, CSS, and JavaScript that helps users understand sorting algorithms through interactive animations. The project visually demonstrates how algorithms like Bubble Sort, Selection Sort, Insertion Sort, Merge Sort, and Quick Sort work step by step.  
+An interactive web application that visualizes different sorting algorithms in real-time through animated bars and step-by-step execution. This project helps users understand how sorting algorithms work by showing comparisons, swaps, and sorting processes visually.
